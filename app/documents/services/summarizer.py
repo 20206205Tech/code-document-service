@@ -3,7 +3,7 @@ from langchain_core.output_parsers import StrOutputParser
 from loguru import logger
 
 import env
-from app.documents.core.llm import choose_llm
+from app.documents.core.llm import llm
 from app.documents.core.prompt import document_summary_prompt
 
 
@@ -45,7 +45,7 @@ class AISummarizationService:
 
             prompt_content = self._build_summary_prompt(safe_text, filename)
 
-            full_chain = choose_llm | StrOutputParser()
+            full_chain = llm | StrOutputParser()
 
             input_messages = [HumanMessage(content=prompt_content)]
 
