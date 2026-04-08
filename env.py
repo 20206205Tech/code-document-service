@@ -1,3 +1,5 @@
+import os
+
 from environs import Env
 from loguru import logger
 
@@ -54,6 +56,10 @@ if ENVIRONMENT == "development":
         ],
         shell=True,
     )
+
+
+os.environ["LANGSMITH_TRACING"] = "true"
+os.environ["LANGSMITH_PROJECT"] = "project-document-by-terraform"
 
 
 CLOUDFLARE_ACCOUNT_ID = env.str("CLOUDFLARE_ACCOUNT_ID")
