@@ -2,7 +2,7 @@ import datetime
 import uuid
 from typing import Optional
 
-from sqlalchemy import JSON, UUID, DateTime, Float, Integer, String, Text
+from sqlalchemy import JSON, UUID, DateTime, Float, Integer, String, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -43,12 +43,15 @@ class Document(Base):
     )
     user_id: Mapped[str] = mapped_column(String(255), index=True)
     filename: Mapped[str] = mapped_column(String(255))
-    status: Mapped[str] = mapped_column(
-        String(50), default="UPLOADED"
-    )  # UPLOADED, PROCESSING, COMPLETED, FAILED
-    file_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
-    extracted_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="UPLOADED")
+
+    has_file: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    has_content: Mapped[bool] = mapped_column(
+        default=False, server_default=text("false")
+    )
+    has_summary: Mapped[bool] = mapped_column(
+        default=False, server_default=text("false")
+    )
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

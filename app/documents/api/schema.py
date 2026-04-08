@@ -18,49 +18,45 @@ class DocumentUploadResponse(BaseModel):
     filename: str = Field(..., description="Original filename")
     status: str = Field(..., description="Current processing status")
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
-            "example": {
-                "doc_id": "123e4567-e89b-12d3-a456-426614174000",
-                "filename": "report.pdf",
-                "status": "UPLOADED",
-            }
-        },
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentDetailResponse(BaseModel):
     id: UUID = Field(..., description="Unique document ID")
     filename: str = Field(..., description="Original filename")
     status: str = Field(..., description="Current processing status")
+
+    has_file: bool = Field(default=False, description="Trạng thái tồn tại của file gốc")
+    has_content: bool = Field(
+        default=False, description="Trạng thái tồn tại của file nội dung (.md)"
+    )
+    has_summary: bool = Field(
+        default=False, description="Trạng thái tồn tại của file tóm tắt (.txt)"
+    )
+
     file_url: Optional[str] = Field(None, description="URL to access the file")
-    extracted_text: Optional[str] = Field(None, description="Extracted text content")
-    summary: Optional[str] = Field(None, description="AI-generated summary")
+    parsed_content_url: Optional[str] = Field(
+        None, description="URL to access the parsed markdown file"
+    )
+    summary_url: Optional[str] = Field(
+        None, description="URL to access the summary text file"
+    )
+
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
-            "example": {
-                "id": "123e4567-e89b-12d3-a456-426614174000",
-                "filename": "report.pdf",
-                "status": "COMPLETED",
-                "file_url": "https://pub-xxx.r2.dev/user123/report.pdf",
-                "extracted_text": "Full document text...",
-                "summary": "This document discusses...",
-                "created_at": "2024-04-07T10:00:00Z",
-                "updated_at": "2024-04-07T10:05:00Z",
-            }
-        },
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentListItem(BaseModel):
     id: UUID = Field(..., description="Unique document ID")
     filename: str
     status: str
+
+    has_file: bool
+    has_content: bool
+    has_summary: bool
+
     created_at: datetime
     updated_at: datetime
 

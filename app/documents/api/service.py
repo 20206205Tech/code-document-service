@@ -1,5 +1,3 @@
-import uuid
-
 from fastapi import BackgroundTasks, HTTPException, UploadFile, status
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -17,45 +15,40 @@ def handle_document_upload(
 ):
     try:
         filename, extension = validate_upload_file(file)
-        logger.info(f"📤 Đang xử lý upload cho user {user_id}: {filename}")
 
-        # Tạo một tên file duy nhất: user_id/uuid_filename.pdf
-        unique_id = uuid.uuid4().hex
-        file_key = f"{user_id}/{unique_id}_{filename}"
-
-        # file_key = f"{user_id}/{filename}"
-        try:
-            file_url = r2_storage.upload_file(
-                file_obj=file.file, file_key=file_key, content_type=file.content_type
-            )
-        except R2StorageError as e:
-            logger.error(f"❌ R2 upload failed: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload file to storage: {str(e)}",
-            )
-
-        # 3. CREATE DATABASE RECORD
         new_doc = Document(
             user_id=user_id,
             filename=filename,
-            file_url=file_url,
             status=schema.DocumentStatusEnum.UPLOADED.value,
+            has_file=False,
         )
         db.add(new_doc)
         db.commit()
         db.refresh(new_doc)
-        logger.info(f"✅ Đã tạo bản ghi document: {new_doc.id}")
 
-        # 4. TRIGGER BACKGROUND PROCESSING
-        background_tasks.add_task(process_document_task, str(new_doc.id))
-        logger.info(f"🚀 Đã đưa task vào hàng chờ xử lý: {new_doc.id}")
+        # 2. Định nghĩa Key theo quy ước mới
+        doc_uuid = str(new_doc.id)
+        file_key = f"{user_id}/document/{doc_uuid}"
 
+        # 3. Upload lên R2
+        try:
+            r2_storage.upload_file(
+                file_obj=file.file, file_key=file_key, content_type=file.content_type
+            )
+            # Cập nhật cờ đã có file
+            new_doc.has_file = True
+            db.commit()
+        except R2StorageError as e:
+            logger.error(f"Lỗi khi upload lên R2: {e}")
+
+        # 4. Đẩy vào Background Task
+        background_tasks.add_task(process_document_task, doc_uuid)
+
+        # Trả về response đúng định dạng thay vì dấu ...
         return schema.DocumentUploadResponse(
-            doc_id=str(new_doc.id), filename=filename, status=new_doc.status
+            doc_id=new_doc.id, filename=new_doc.filename, status=new_doc.status
         )
-    except HTTPException:
-        raise
+
     except Exception as e:
         logger.exception(f"❌ Lỗi không xác định khi upload")
         raise HTTPException(
@@ -65,7 +58,6 @@ def handle_document_upload(
 
 
 def get_document_by_id(db: Session, doc_id: str, user_id: str):
-    # 1. Lấy thông tin từ DB
     doc = (
         db.query(Document)
         .filter(Document.id == doc_id, Document.user_id == user_id)
@@ -75,17 +67,24 @@ def get_document_by_id(db: Session, doc_id: str, user_id: str):
     if not doc:
         return None
 
-    # 2. Lấy file_key từ file_url đã lưu
-    # doc.file_url hiện đang có dạng: https://domain.com/user_id/uuid_filename.pdf
+    # Tạm thời gán thuộc tính để trả về API (các trường này phải có trong file schema.py)
+    doc.file_url = None
+    doc.parsed_content_url = None
+    doc.summary_url = None
+
     try:
-        # Cách an toàn để lấy key từ URL:
-        from urllib.parse import urlparse
+        if doc.has_file:
+            doc_key = f"{user_id}/document/{doc.id}"
+            doc.file_url = r2_storage.generate_presigned_url(doc_key)
 
-        path = urlparse(doc.file_url).path  # Kết quả: /user_id/uuid_filename.pdf
-        file_key = path.lstrip("/")  # Kết quả: user_id/uuid_filename.pdf
+        if doc.has_content:
+            content_key = f"{user_id}/content/{doc.id}"
+            doc.parsed_content_url = r2_storage.generate_presigned_url(content_key)
 
-        presigned_url = r2_storage.generate_presigned_url(file_key, expiration=3600)
-        doc.file_url = presigned_url
+        if doc.has_summary:
+            summary_key = f"{user_id}/summary/{doc.id}"
+            doc.summary_url = r2_storage.generate_presigned_url(summary_key)
+
     except Exception as e:
         logger.error(f"⚠️ Không thể tạo presigned URL: {e}")
 

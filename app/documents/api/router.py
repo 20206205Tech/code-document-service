@@ -18,6 +18,7 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     data = service.handle_document_upload(db, background_tasks, file, user_id)
+
     return BaseResponse(
         success=True,
         message="Tải lên thành công. Đang xử lý tài liệu trong nền.",
@@ -78,6 +79,7 @@ async def retry_document_processing(
     db: Session = Depends(get_db),
 ):
     doc = service.retry_processing(db, background_tasks, doc_id, user_id)
+
     if not doc:
         raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu")
 

@@ -5,40 +5,23 @@ from loguru import logger
 
 
 class DocumentParserError(Exception):
-    """Custom exception for document parsing errors"""
+    pass
 
 
 class DocumentParserService:
-    """Service for parsing documents using Docling"""
-
     def __init__(self):
-        """Initialize Docling converter"""
         self.converter = DocumentConverter()
         logger.info("✅ Document Parser Service initialized")
 
     def parse_document(self, file_path: Path) -> str:
-        """
-        Parse document and extract text content
-
-        Args:
-            file_path: Path to the document file
-
-        Returns:
-            Extracted text in markdown format
-
-        Raises:
-            DocumentParserError: If parsing fails
-        """
         try:
             if not file_path.exists():
                 raise DocumentParserError(f"File not found: {file_path}")
 
             logger.info(f"📄 Parsing document: {file_path.name}")
 
-            # Convert document using Docling
             result = self.converter.convert(str(file_path))
 
-            # Export to markdown format
             extracted_text = result.document.export_to_markdown()
 
             if not extracted_text or not extracted_text.strip():
@@ -57,5 +40,4 @@ class DocumentParserService:
             raise DocumentParserError(error_msg) from e
 
 
-# Singleton instance
 document_parser = DocumentParserService()

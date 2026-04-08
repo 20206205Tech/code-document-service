@@ -8,29 +8,16 @@ from app.documents.core.prompt import document_summary_prompt
 
 
 class SummarizationError(Exception):
-    """Custom exception for summarization errors"""
+    pass
 
 
 class AISummarizationService:
-    """Service for AI-powered document summarization"""
-
     def __init__(self):
-        """Initialize summarization service"""
         logger.info("✅ AI Summarization Service initialized")
 
     def _truncate_text(
         self, text: str, max_length: int = env.MAX_SUMMARY_TEXT_LENGTH
     ) -> str:
-        """
-        Truncate text to prevent token limit issues
-
-        Args:
-            text: Text to truncate
-            max_length: Maximum character length
-
-        Returns:
-            Truncated text
-        """
         if len(text) <= max_length:
             return text
 
@@ -40,54 +27,33 @@ class AISummarizationService:
         )
         return truncated
 
-    def _build_summary_prompt(self, text: str) -> str:
-        # return document_summary_prompt.DOCUMENT_SUMMARY_PROMPT
-        return document_summary_prompt.DOCUMENT_SUMMARY_PROMPT.format(text=text)
+    def _build_summary_prompt(self, text: str, filename: str) -> str:
+        return document_summary_prompt.DOCUMENT_SUMMARY_PROMPT.format(
+            filename=filename, text=text
+        )
 
-    def summarize(self, text: str) -> str:
-        """
-        Summarize document text using AI
-
-        Args:
-            text: Extracted document text
-
-        Returns:
-            AI-generated summary
-
-        Raises:
-            SummarizationError: If summarization fails
-        """
+    def summarize(self, text: str, filename: str) -> str:
         try:
             if not text or not text.strip():
                 raise SummarizationError("Cannot summarize empty text")
 
             logger.info(
-                f"🤖 Starting AI summarization - Text length: {len(text):,} chars"
+                f"🤖 Starting AI summarization for '{filename}' - Text length: {len(text):,} chars"
             )
 
-            # Truncate text if too long
             safe_text = self._truncate_text(text)
-            prompt_content = self._build_summary_prompt(safe_text)
 
-            # TẠO CHUỖI XỬ LÝ (PIPE)
-            # Dữ liệu đi vào choose_llm_router -> Trả về LLM phù hợp -> LLM thực thi prompt
+            prompt_content = self._build_summary_prompt(safe_text, filename)
+
             full_chain = choose_llm | StrOutputParser()
 
-            logger.info("⏳ Executing LangChain Pipe...")
-
-            # Gửi input vào đầu chuỗi
-            # Vì choose_llm_router bên llm.py đang xử lý list message:
             input_messages = [HumanMessage(content=prompt_content)]
 
-            # Chỉ gọi .invoke() MỘT LẦN duy nhất cho cả chuỗi
             summary = full_chain.invoke(input_messages)
 
             if not summary:
                 raise SummarizationError("LLM returned empty summary")
 
-            logger.info(
-                f"✅ Summarization completed - Summary length: {len(summary):,} chars"
-            )
             return summary
 
         except Exception as e:
@@ -96,5 +62,4 @@ class AISummarizationService:
             raise SummarizationError(error_msg) from e
 
 
-# Singleton instance
 ai_summarizer = AISummarizationService()

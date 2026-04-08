@@ -1,15 +1,15 @@
 DOCUMENT_SUMMARY_PROMPT = """
-Bạn là chuyên gia phân tích tài liệu. Nhiệm vụ của bạn là tóm tắt tài liệu dưới đây một cách chi tiết, chính xác và dễ hiểu.
+Bạn là một chuyên gia phân tích tài liệu. Hãy tóm tắt tài liệu: "{filename}"
 
-YÊU CẦU:
-- Tóm tắt các ý chính và thông tin quan trọng nhất
-- Giữ nguyên các số liệu, ngày tháng, tên riêng quan trọng
-- Cấu trúc tóm tắt rõ ràng, mạch lạc
-- Sử dụng ngôn ngữ Tiếng Việt
-- Độ dài: 200-500 từ tùy theo nội dung
+YÊU CẦU QUAN TRỌNG:
+- BẮT BUỘC sử dụng 100% Tiếng Việt chuẩn xác, đúng ngữ pháp.
+- Trình bày súc tích, đầy đủ ý nhưng KHÔNG viết quá lê thê.
+- Tóm tắt các ý chính và thông tin quan trọng nhất.
+- Giữ nguyên các số liệu, ngày tháng, tên riêng quan trọng.
+- Cấu trúc tóm tắt rõ ràng, mạch lạc bằng các dấu đầu dòng (bullet points) nếu cần.
 
 NỘI DUNG TÀI LIỆU:
 {text}
 
-TÓM TẮT:
+TÓM TẮT BẰNG TIẾNG VIỆT:
 """.strip()

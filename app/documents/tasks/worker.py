@@ -51,34 +51,54 @@ class DocumentProcessor:
 
     def process(self, doc_id: str) -> bool:
         temp_file_path: Optional[Path] = None
+        temp_md_path: Optional[Path] = None
+
         try:
-            # 1. Lấy document từ DB
             doc = self.db.query(Document).filter(Document.id == doc_id).first()
             if not doc:
-                logger.error(f"❌ Document {doc_id} not found")
                 return False
 
             self._update_document_status(doc, "PROCESSING")
 
-            # 2. Trích xuất text (nếu chưa có)
-            if not doc.extracted_text:
-                file_key = self._extract_file_key_from_url(doc.file_url)
-                temp_file_path = r2_storage.download_to_tempfile(file_key)
+            doc_key = f"{doc.user_id}/document/{doc.id}"
+            content_key = f"{doc.user_id}/content/{doc.id}"
+            summary_key = f"{doc.user_id}/summary/{doc.id}"
+
+            # 2. Trích xuất text (Lưu vào thư mục content)
+            if not doc.has_content:
+                temp_file_path = r2_storage.download_to_tempfile(
+                    doc_key, prefix=f"doc_{doc.id}_"
+                )
                 extracted_text = document_parser.parse_document(temp_file_path)
-                doc.extracted_text = extracted_text
+
+                # Upload lên R2
+                r2_storage.upload_text(extracted_text, content_key, "text/markdown")
+
+                doc.has_content = True
                 self.db.commit()
             else:
-                extracted_text = doc.extracted_text
+                # Tải về nếu đã có (truyền thêm prefix để an toàn)
+                temp_md_path = r2_storage.download_to_tempfile(
+                    content_key, prefix=f"content_{doc.id}_"
+                )
+                with open(temp_md_path, "r", encoding="utf-8") as f:
+                    extracted_text = f.read()
 
-            # 3. Tóm tắt nội dung
-            summary = ai_summarizer.summarize(extracted_text)
-            doc.summary = summary
-            self.db.commit()
+            # 3. Tóm tắt nội dung (Lưu vào thư mục summary)
+            if not doc.has_summary:
+                summary = ai_summarizer.summarize(extracted_text, filename=doc.filename)
 
-            # 4. Chia nhỏ (Chunking) - Sử dụng module mới
+                r2_storage.upload_text(
+                    summary, summary_key, "text/plain; charset=utf-8"
+                )
+
+                doc.has_summary = True
+                self.db.commit()
+
+            # 4. Chia nhỏ (Chunking)
             chunks = chunk_text(extracted_text)
 
-            # 5. Lưu vào Vector Store - Sử dụng module mới
+            # 5. Lưu vào Vector Store
             metadatas = [
                 {
                     "user_id": str(doc.user_id),
@@ -94,11 +114,12 @@ class DocumentProcessor:
 
         except Exception as e:
             logger.error(f"❌ Error: {str(e)}")
-            if doc:
+            if "doc" in locals() and doc:
                 self._update_document_status(doc, "FAILED", str(e))
             return False
         finally:
             self._cleanup_tempfile(temp_file_path)
+            self._cleanup_tempfile(temp_md_path)
 
 
 def process_document_task(doc_id: str) -> None:
